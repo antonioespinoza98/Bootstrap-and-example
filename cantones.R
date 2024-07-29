@@ -109,8 +109,7 @@ guacimo <- c("70601", "70602", "70603", "70604", "70605")
 # Extraemos el censo y de una vez creamos una columna nueva llamada 
 # canton, donde se crean los cantones en base a los distritos
 
-censo_mrp <- censo_mrp <- readRDS("ingreso/datos/cens0.rds") %>%
-  filter(anoest != "98") %>% 
+censo_mrp <- censo_mrp <- readRDS("data/cens0.rds") |>
   mutate(
     canton = 
       case_when(
@@ -202,11 +201,10 @@ censo_mrp <- censo_mrp <- readRDS("ingreso/datos/cens0.rds") %>%
       )
   )
 
-
 # Predicción realizada ----------------------------------------------------
 
-# Cargamos la predicción realizada en el archivo de XGBoost.Rmd
-pred <- readRDS("ingreso/output/pred3.rds")
+# Cargamos la predicción realizada en el modelo
+pred <- readRDS("output/prediction.rds")
 # se lo agregamos al data frame del censo
 censo_mrp$pred_ingreso <- pred
 
@@ -215,13 +213,13 @@ censo_mrp$pred_ingreso <- pred
 
 # Creamos una base de datos resumen para el ingreso medio para cada uno 
 # de los 81 cantones existentes en el censo 2011. 
-ingreso_cantonal <- censo_mrp %>% 
-  group_by(canton) %>% 
+ingreso_cantonal <- censo_mrp |> 
+  group_by(canton) |> 
   summarise(
     ingreso_medio = mean(pred_ingreso)
   )
 
-saveRDS(ingreso_cantonal, "ingreso/output/ingreso_cantonal.rds")
+saveRDS(ingreso_cantonal, "output/ingreso_cantonal.rds")
 
 # BASE RESUMEN PARA LAS REGIONES DE PLANIFICACIÓN ECONÓMICA  --------------
 
@@ -231,8 +229,7 @@ saveRDS(ingreso_cantonal, "ingreso/output/ingreso_cantonal.rds")
 # se hace un left join con el shapefile, por lo tanto el nombre de la 
 #columna en común debe ser igual a la del otro archivo. 
 # para evitar recodings, se hace desde acá.
-censo_mrp <- censo_mrp <- readRDS("ingreso/datos/cens0.rds") %>%
-  filter(anoest != "98") %>% 
+censo_mrp <- censo_mrp <- readRDS("data/cens0.rds") |>
   mutate(
   region = recode(dam,
                "01" = "Central",
@@ -242,12 +239,12 @@ censo_mrp <- censo_mrp <- readRDS("ingreso/datos/cens0.rds") %>%
                "05" = "Huetar Caribe",
                "06" = "Huetar Norte"))
 # volvemos a cargar la predicción y se la agregamos a la base del censo  
-pred <- readRDS("ingreso/output/pred3.rds")
+pred <- readRDS("output/prediction.rds")
 censo_mrp$pred_ingreso <- pred
 
 # Creamos una base de datos resumen para las regiones de planificación
-ingreso_region <- censo_mrp %>% 
-  group_by(region) %>% 
+ingreso_region <- censo_mrp |> 
+  group_by(region) |> 
   summarise(
     ingreso_medio = mean(pred_ingreso)
   )
@@ -259,14 +256,14 @@ saveRDS(ingreso_region, "ingreso/output/ingreso_region.rds")
 
 # Creamos base para distrito ----------------------------------------------
 
-censo_mrp <- censo_mrp <- readRDS("ingreso/datos/censo_mrp1.rds")
-pred <- readRDS("ingreso/output/pred.rds")
+censo_mrp <- censo_mrp <- readRDS("data/cens0.rds")
+pred <- readRDS("output/prediction.rds")
 censo_mrp$pred_ingreso <- pred
 
 ingreso_distrito <- censo_mrp %>% group_by(distrito) %>% 
   summarise(media_ingreso = mean(pred))
 
-saveRDS(ingreso_distrito, "ingreso/output/ingreso_distrital.rds")
+saveRDS(ingreso_distrito, "output/ingreso_distrital.rds")
 
 setdiff(distritos$CÓDIGO_DTA,ingreso_distrito$distrito)
 

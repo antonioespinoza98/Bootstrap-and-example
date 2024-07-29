@@ -340,10 +340,11 @@ final |>
   theme_minimal()
 
 # Mapas -------------------------------------------------------------------
+rm(list = ls())
 
 cantones <- st_read("geojson/cantones_ajustado_cr.geojson", quiet = TRUE)
 
-ingreso_cantonal <- readRDS("ingreso/output/ingreso_cantonal.rds")
+ingreso_cantonal <- readRDS("output/ingreso_cantonal.rds")
 
 mapa <- left_join(x = cantones,
                   y = ingreso_cantonal,
@@ -357,19 +358,28 @@ mapa_plot <- ggplot(data = mapa, mapping = aes(fill = ingreso_medio)) +
   scale_fill_viridis_c() +
   theme_minimal()
 
-ggsave(mapa_plot, filename = "ingreso/output/mapa_cantonal.png")
+# ggsave(mapa_plot, filename = "ingreso/output/mapa_cantonal.png")
 
 
 # Mapa regiones de planificación ------------------------------------------
 
-regiones <- st_read("ingreso/output/regiones_cr.geojson")
-ingreso_region <- readRDS("ingreso/output/ingreso_region.rds")
+regiones <- st_read("geojson/regiones_cr.geojson")
+ingreso_region <- readRDS("output/bootstrap_results.rds") |>
+  mutate(
+    region = recode(dam,
+                    "01" = "Central",
+                    "02" = "Chorotega",
+                    "03" = "Pacífico Central",
+                    "04" = "Brunca",
+                    "05" = "Huetar Caribe",
+                    "06" = "Huetar Norte"))
+
 
 mapping <- left_join(x = regiones,
                      y = ingreso_region,
                      by = join_by(region == region))
 
-region_plot <- ggplot(data = mapping, mapping = aes(fill = ingreso_medio)) +
+region_plot <- ggplot(data = mapping, mapping = aes(fill = Media)) +
   geom_sf(color = "white") +
   labs(fill = "Ingreso medio") +
   scale_fill_viridis_c() +
@@ -378,20 +388,3 @@ region_plot <- ggplot(data = mapping, mapping = aes(fill = ingreso_medio)) +
 ggsave(region_plot, filename = "ingreso/output/mapa_mideplan.png")
 
 
-# Mapa distrital ----------------------------------------------------------
-
-distritos <- st_read("ingreso/output/distritos_cr.geojson") %>%
-  janitor::clean_names()
-
-ingreso_dist <- readRDS("ingreso/output/ingreso_distrital.rds") %>%
-  mutate(distrito = as.numeric(distrito))
-mapping <- left_join(x = distritos,
-                     y = ingreso_dist,
-                     by = join_by(codigo_dta == distrito))
-
-
-ggplot(data = mapping, mapping = aes(fill = media_ingreso)) +
-  geom_sf(color = "white") +
-  labs(fill = "Ingreso medio") +
-  scale_fill_viridis_c() +
-  theme_minimal()
