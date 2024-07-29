@@ -30,10 +30,10 @@ library(dplyr)
 library(tidyr)
 library(XboostingMM)
 
-data <- readRDS("encuesta_df_agg.rds") |>
+data <- readRDS("data/encuesta_df_agg.rds") |>
   mutate_if(is.character, as.factor)
 
-censo <- readRDS("cens0.rds") |>
+censo <- readRDS("data/cens0.rds") |>
   select(dam) |>
   mutate(dam = recode(dam,
                       "01" = "1",
@@ -45,14 +45,14 @@ censo <- readRDS("cens0.rds") |>
                       ))
 data <- as.data.frame(data)
 # Leemos la predicción
-f <- readRDS("prediction.rds")
+f <- readRDS("output/prediction.rds")
 length(f)
 
 # pegamos la predicción al censo
 censo$f <- f
 
 # 2. Efectos aleatorios
-fit <- readRDS("fit.rds")
+fit <- readRDS("output/fit.rds")
 randomEffects <- fit$raneffs
 
 # 3. Errores
@@ -192,7 +192,7 @@ r_hat <- resid_marg - 1*r_bar
 
 # Ciclo -------------------------------------------------------------------
 count <- 1
-limit <- 10
+limit <- 100
 ext <- dim(censo)[1]
 PBS <- matrix(0, nrow = ext, ncol = limit)
 result <-  vector(mode = "numeric", length = ext)
@@ -293,7 +293,6 @@ mse_result <- tibble(
 
 # Validación --------------------------------------------------------------
 
-
 confint_int <- resultado |>
   mutate(
     SE = sqrt(Varianza), # Standard Error
@@ -339,11 +338,12 @@ mapping |>
   theme_minimal()
 
 final |>
-  ggplot(aes(x = dam, y = value)) + geom_point( size = 2, col = "green", position = "jitter") +
+  ggplot(aes(x = dam, y = value)) + geom_point(col = "green") +
   labs(x = "Región de planificación económica", y = "Ingreso") +
-  geom_errorbar(data = final, aes(x = dam, ymin = lower, ymax = upper)) +
+  # ylim(150000,450000) +
+  geom_errorbar(data = final, aes(x = dam, ymin = AdjustedLower,
+                                  ymax = AdjustedUpper)) +
   theme_minimal()
-
 
 
 
