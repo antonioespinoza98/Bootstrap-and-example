@@ -30,10 +30,10 @@ library(dplyr)
 library(tidyr)
 library(XboostingMM)
 
-data <- readRDS("C:/Users/marqu/Documents/SAExML/R/pobreza/datos/encuesta_df_agg.rds") |>
+data <- readRDS("encuesta_df_agg.rds") |>
   mutate_if(is.character, as.factor)
 
-censo <- readRDS("C:/Users/marqu/Documents/SAExML/R/ingreso/datos/cens0.rds") |>
+censo <- readRDS("cens0.rds") |>
   select(dam) |>
   mutate(dam = recode(dam,
                       "01" = "1",
@@ -192,7 +192,7 @@ r_hat <- resid_marg - 1*r_bar
 
 # Ciclo -------------------------------------------------------------------
 count <- 1
-limit <- 100
+limit <- 10
 ext <- dim(censo)[1]
 PBS <- matrix(0, nrow = ext, ncol = limit)
 result <-  vector(mode = "numeric", length = ext)
@@ -252,7 +252,7 @@ resultado <- matrix(c(medias, varianzas), nrow = 6, ncol = 2,
                       "Dam" = c("01", "02",
                                 "03", "04",
                                 "05", "06"),
-                      "Estimación" = c("ingreso","Varianza")
+                      "Estimación" = c("value","Varianza")
                     ))
 
 resultado <- as_tibble(resultado)
@@ -272,7 +272,7 @@ media_est_srvyr <- svyby(
   svymean
 )
 
-media_est_srvyr$dam <- c("1","2","3","4","5","6")
+media_est_srvyr$dam <- c("01","02","03","04","05","06")
 
 
 mse <- numeric(6)
@@ -293,40 +293,56 @@ mse_result <- tibble(
 
 # Validación --------------------------------------------------------------
 
-diseno <- PBS_long  %>% 
-  as_survey_design()
 
-media_est_srvyr <- svyby(
-  ~ingreso,
-  by = ~dam,
-  design = diseno,
-  svymean
-)
+confint_int <- resultado |>
+  mutate(
+    SE = sqrt(Varianza), # Standard Error
+    min_inter = value - 1.96 * SE, # Lower bound of the 95% CI
+    max_inter = value + 1.96 * SE  # Upper bound of the 95% CI
+  )
 
-confint_int <- confint(svyby(formula = ~ingreso,
-                             by = ~dam,
-                             design = diseno,
-                             svymean))
+# Calcular los intervalos de confianza
+IC_df <- mean_df |>
+  pivot_longer(cols = starts_with("PB"),
+               names_to = "PB",
+               values_to = "value") |>
+  group_by(dam) |>
+  summarise(
+    lower = quantile(value, probs = 0.025, na.rm = TRUE),
+    upper = quantile(value, probs = 0.975, na.rm = TRUE)
+  )
+
+
+IC_df$dam <- c("01","02","03","04","05","06")
+# Mostrar los intervalos de confianza junto con las medias y varianzas
+final <- resultado |>
+  left_join(IC_df, by = "dam")
+
 
 confint_int <- data.table(confint_int, keep.rownames = TRUE)
 colnames(confint_int) <- c("dam","min_inter", "max_inter")
+confint_int$dam <- c("01","02","03","04","05","06")
+confint_int$value <- media_est_srvyr$value
 
-confint_int$ingreso <- media_est_srvyr$ingreso
-
-mapping <- rbind(media_est_srvyr[,-3], resultado)
-
+mapping <- rbind(media_est_srvyr[,-3], resultado[,-2])
+mapping$dam <- rep(c("01","02","03","04","05","06"), 2)
 estim <- c(rep("Directo", 6), rep("XGBoost MM", 6))
 
 mapping <- cbind(mapping, estim)
 options(scipen = 999)
 mapping |>
-  ggplot(aes(x = dam, y = ingreso)) + geom_point(aes(color = estim), size = 2, position = "jitter") +
+  ggplot(aes(x = dam, y = value)) + geom_point(aes(color = estim), size = 2, position = "jitter") +
   scale_color_manual(values = c("red", "green")) +
   ylim(150000,450000) +
   labs(x = "Región de planificación", y = "Ingreso", col = "Modelo") +
   geom_errorbar(data = confint_int, aes(x = dam, ymin = min_inter, ymax = max_inter)) +
   theme_minimal()
 
+final |>
+  ggplot(aes(x = dam, y = value)) + geom_point( size = 2, col = "green", position = "jitter") +
+  labs(x = "Región de planificación económica", y = "Ingreso") +
+  geom_errorbar(data = final, aes(x = dam, ymin = lower, ymax = upper)) +
+  theme_minimal()
 
 
 
